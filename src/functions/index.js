@@ -29,23 +29,15 @@ export let getDiscount = functions.https.onRequest(async (req, res) => {
 export let checkOut = functions.https.onRequest(async (req, res) => {
   let {tel, net, promoCode} = req.query
   if (promoCode) {
-    const c = await db.collection('promoCode').doc(promoCode).get()
+    const promoRef = db.collection('promoCode').doc(promoCode)
+    const c = db.runTransaction(t => {
+      return t.get(promoRef)
+    })
     if (c.exists && c.data().status === 'unused') {
       if (c.data().type === 'onetime') {
-        // await db.collection('promoCode').doc(promoCode).update({
-        //   status: 'used'
-        // })
-        var promoRef = db.collection('promoCode').doc(promoCode)
-        var transaction = db.runTransaction(t => {
-          return t.get(promoRef).then(doc => {
-            t.update(promoRef, { status: 'used' })
-          })
-        }).then(result => {
-          console.log('Transaction success!')
-        }).catch(err => {
-          console.log('Transaction failure:', err)
+        await db.collection('promoCode').doc(promoCode).update({
+          status: 'used'
         })
-        // TODO : DB Transaction + logging
       }
       if (c.data().discount_type === 'Baht') {
         net = net - (c.data().discount_number)
@@ -58,6 +50,35 @@ export let checkOut = functions.https.onRequest(async (req, res) => {
       setLog (req.query, state.USE_CODE, null)
     }
   }
+
+    // const c = await db.collection('promoCode').doc(promoCode).get()
+    // if (c.exists && c.data().status === 'unused') {
+    //   if (c.data().type === 'onetime') {
+    //     // await db.collection('promoCode').doc(promoCode).update({
+    //     //   status: 'used'
+    //     // })
+    //     var promoRef = db.collection('promoCode').doc(promoCode)
+    //     var transaction = db.runTransaction(t => {
+    //       return t.get(promoRef).then(doc => {
+    //         t.update(promoRef, { status: 'used' })
+    //       })
+    //     }).then(result => {
+    //       console.log('Transaction success!')
+    //     }).catch(err => {
+    //       console.log('Transaction failure:', err)
+    //     })
+    //     // TODO : DB Transaction + logging
+    //   }
+    //   if (c.data().discount_type === 'Baht') {
+    //     net = net - (c.data().discount_number)
+    //     setLog (req.query, state.USE_CODE, net)
+    //   } else if (c.data().discount_type === '%') {
+    //     net = net - ((net * c.data().discount_number) / 100)
+    //     setLog (req.query, state.USE_CODE, net)
+    //   }
+    // } else {
+    //   setLog (req.query, state.USE_CODE, null)
+    // }
 
   const result = await db.collection('vip').doc(tel).get()
   if (result.exists && net >= 3000) {
