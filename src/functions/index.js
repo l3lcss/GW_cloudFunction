@@ -1,5 +1,4 @@
 import * as functions from "firebase-functions"
-
 const admin = require('firebase-admin')
 var moment = require('moment')
 admin.initializeApp({
@@ -11,28 +10,6 @@ const state = {
   USE_CODE: 'USE_CODE'
 }
 const db = admin.firestore()
-
-export let checkOut = functions.https.onRequest(async (req, res) => {
-  let {tel, net, promoCode} = req.query
-
-  if (promoCode) {
-    const selectedPromoCode = db.runTransaction(transaction => {
-      return transaction.get(db.collection('promoCode').doc(promoCode))
-    })
-
-    if (selectedPromoCode.exists && selectedPromoCode.data().status === 'unused') {
-      setStatus (selectedPromoCode.data().type)
-      net = getNetDiscount (net, selectedPromoCode.data().discount_type, selectedPromoCode.data().discount_number)
-      setLog (req.query, state.USE_CODE, net)
-    } else {
-      setLog (req.query, state.USE_CODE, null)
-    }
-  }
-
-  let result = getCode (tel, net)
-  res.send(result)
-  setLog (req.query, state.GEN_CODE, result)
-})
 
 export let getDiscount = functions.https.onRequest(async (req, res) => {
   let promoCode = req.query.promoCode
@@ -50,16 +27,45 @@ export let getDiscount = functions.https.onRequest(async (req, res) => {
   }
 })
 
+export let checkOut = functions.https.onRequest(async (req, res) => {
+  let {tel, net, promoCode} = req.query
+  if (promoCode) {
+
+    const selectedPromotion = await db.runTransaction(transaction => {
+      return transaction.get(db.collection('promoCode').doc(promoCode))
+    })
+    
+    if (selectedPromotion.exists && selectedPromotion.data().status === 'unused') {
+
+      await setStatus(selectedPromotion.data().type, promoCode)
+
+      net = getNetDiscount (
+        net,
+        selectedPromotion.data().discount_type,
+        selectedPromotion.data().discount_number
+      )
+
+      setLog (req.query, state.USE_CODE, net)
+    } else {
+      setLog (req.query, state.USE_CODE, null)
+    }
+  }
+
+  const result = await getCode(tel, net)
+  setLog (req.query, state.GEN_CODE, result)
+  res.send(result)
+})
+
 function getNetDiscount (net, discountType, discountNumber) {
   if (discountType === 'Baht') {
     net = net - discountNumber
   } else if (discountType === '%') {
-    net = net - ((net *discountNumber) / 100)
+    net = net - ((net * discountNumber) / 100)
   }
   return net
 }
 
-function setStatus (type) {
+async function setStatus (type, promoCode) {
   if (type === 'onetime') {
     await db.collection('promoCode').doc(promoCode).update({
       status: 'used'
@@ -67,7 +73,7 @@ function setStatus (type) {
   }
 }
 
-function getCode (tel, net) {
+async function getCode (tel, net) {
   const result = await db.collection('vip').doc(tel).get()
   if (result.exists && net >= 3000) {
     let generatedCode = genCode()
