@@ -29,17 +29,21 @@ export let getDiscount = functions.https.onRequest(async (req, res) => {
 
 export let checkOut = functions.https.onRequest(async (req, res) => {
   let {tel, net, promoCode} = req.query
+  if (!((tel) && (net))) {
+    res.status(400).send('Bad Values!!');
+    return
+  }
+
   if (promoCode) {
 
     const selectedPromotion = await db.runTransaction(transaction => {
       return transaction.get(db.collection('promoCode').doc(promoCode))
     })
-    
+
     if (selectedPromotion.exists && selectedPromotion.data().status === 'unused') {
+      await setStatus(selectedPromotion.data().type, promoCode) // set Status to used
 
-      await setStatus(selectedPromotion.data().type, promoCode)
-
-      net = getNetDiscount (
+      net = getNetDiscount (  // set getDiscount Price
         net,
         selectedPromotion.data().discount_type,
         selectedPromotion.data().discount_number
@@ -77,11 +81,10 @@ async function getCode (tel, net) {
   const result = await db.collection('vip').doc(tel).get()
   if (result.exists && net >= 3000) {
     let generatedCode = genCode()
-    let now = moment().format()
-    let date = moment.parseZone(now).utc().format()
-    let expDate = new Date()
+    let createDate = new Date()
+    let expDate = new Date(createDate.getFullYear(), createDate.getMonth()+3, createDate.getDay(), createDate.getHours(), createDate.getMinutes(), createDate.getSeconds())
     let newCode = {
-      create_date: date,
+      create_date: createDate,
       discount_number: 300,
       discount_type: 'Baht',
       exp_date: expDate,
