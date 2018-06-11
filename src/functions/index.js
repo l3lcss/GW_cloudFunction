@@ -1,13 +1,13 @@
 import * as functions from "firebase-functions"
 const admin = require('firebase-admin')
-var moment = require('moment')
 admin.initializeApp({
     credential: admin.credential.applicationDefault() 
 })
 const state = {
   GEN_CODE: 'GEN_CODE',
   FIND_CODE: 'FIND_CODE',
-  USE_CODE: 'USE_CODE'
+  USE_CODE: 'USE_CODE',
+  VALIDATE_DATA: 'VALIDATE_DATA'
 }
 const db = admin.firestore()
 
@@ -29,18 +29,19 @@ export let getDiscount = functions.https.onRequest(async (req, res) => {
 
 export let checkOut = functions.https.onRequest(async (req, res) => {
   let {tel, net, promoCode} = req.query
-  if (!((tel) && (net))) {
-    res.status(400).send('Bad Values!!');
+  if (!((tel) && (net)) || !(/^\d+$/.test(net))) {
+    setLog (req.query, state.VALIDATE_DATA, 'Bad Values!!!')
+    res.status(400).send('Bad Values!!')
     return
   }
 
   if (promoCode) {
-
+    let now_Date = new Date()
     const selectedPromotion = await db.runTransaction(transaction => {
       return transaction.get(db.collection('promoCode').doc(promoCode))
     })
 
-    if (selectedPromotion.exists && selectedPromotion.data().status === 'unused') {
+    if (selectedPromotion.exists && selectedPromotion.data().status === 'unused' && (selectedPromotion.data().exp_date > now_Date)) {
       await setStatus(selectedPromotion.data().type, promoCode) // set Status to used
 
       net = getNetDiscount (  // set getDiscount Price
@@ -82,7 +83,14 @@ async function getCode (tel, net) {
   if (result.exists && net >= 3000) {
     let generatedCode = genCode()
     let createDate = new Date()
-    let expDate = new Date(createDate.getFullYear(), createDate.getMonth()+3, createDate.getDay(), createDate.getHours(), createDate.getMinutes(), createDate.getSeconds())
+    let expDate = new Date(
+      createDate.getFullYear(),
+      createDate.getMonth()+3,
+      createDate.getDay(),
+      createDate.getHours(),
+      createDate.getMinutes(),
+      createDate.getSeconds()
+    )
     let newCode = {
       create_date: createDate,
       discount_number: 300,
