@@ -20,9 +20,9 @@ export let checkOut = functions.https.onRequest(async (req, res) => {
       return transaction.get(db.collection('promoCode').doc(promoCode))
     })
 
-    if (c.exists && c.data().status === 'unused') {
-      setStatus (c.data().type)
-      net = getNetDiscount (net, c.data().discount_type, c.data().discount_number)
+    if (selectedPromoCode.exists && selectedPromoCode.data().status === 'unused') {
+      setStatus (selectedPromoCode.data().type)
+      net = getNetDiscount (net, selectedPromoCode.data().discount_type, selectedPromoCode.data().discount_number)
       setLog (req.query, state.USE_CODE, net)
     } else {
       setLog (req.query, state.USE_CODE, null)
