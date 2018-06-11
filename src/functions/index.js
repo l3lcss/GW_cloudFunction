@@ -61,7 +61,7 @@ export let checkOut = functions.https.onRequest(async (req, res) => {
   res.send(result)
 })
 
-function getNetDiscount (net, discountType, discountNumber) {
+function getNetDiscount (net, discountType, discountNumber) { // Test
   if (discountType === 'Baht') {
     net = net - discountNumber
   } else if (discountType === '%') {
