@@ -81,7 +81,7 @@ async function setStatus (type, promoCode) {
 async function getCode (tel, net) {
   const result = await db.collection('vip').doc(tel).get()
   if (result.exists && net >= 3000) {
-    let generatedCode = genCode()
+    const generatedCode = genCode()
     let createDate = new Date()
     let expDate = new Date(
       createDate.getFullYear(),
@@ -106,29 +106,31 @@ async function getCode (tel, net) {
   }
 }
 
-function genCode() {
-  while (true) {
-    var code = ''
-    var message = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-    for (var i = 0; i < 5; i++) {
+function genCode() { // check Code
+  let code
+  let message = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+  do {
+    code = ''
+    for (let i = 0; i < 5; i++) {
       code += message.charAt(Math.floor(Math.random() * message.length))
     }
-    const transaction = db.runTransaction(t => {
-      return t.get(db.collection('promoCode').doc(code))
-    })
-    if (!transaction.exists) {
-      break
-    }
-  }
+  } while (checkCode(code))
   return code
+}
+
+function checkCode (code) {
+  const transaction = db.runTransaction(t => {
+    return t.get(db.collection('promoCode').doc(code))
+  })
+  return transaction.exists
 }
 
 function setLog (raw, state, result) {
   db.collection('logs').add({
-      time: new Date(),
-      state: state,
-      result: result,
-      raw: raw
+    time: new Date(),
+    state: state,
+    result: result,
+    raw: raw
   })
 }
 
