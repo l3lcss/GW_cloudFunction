@@ -28,25 +28,20 @@ export const getDiscount = functions.https.onRequest(async (req, res) => {
 
 export const checkOut = functions.https.onRequest(async (req, res) => {
   let {tel, net, promoCode} = req.query
-  
   if (!validateDataInput(tel, net)) {
     res.status(400).send('Bad value!!')
   }
-  
   if (promoCode) {
     const promotion = await db.runTransaction(transaction => {
       return transaction.get(db.collection('promoCode').doc(promoCode))
       .then (async selectedPromotion => {
         if (selectedPromotion.exists && selectedPromotion.data().status === 'unused' && (selectedPromotion.data().exp_date > new Date())) {
-          
           setStatus(selectedPromotion.data().type, promoCode) // set Status to used
-    
           net = await getNetDiscount (  // set getDiscount Price
             net,
             selectedPromotion.data().discount_type,
             selectedPromotion.data().discount_number
           )
-
         } else {
           // Log Code can not be used.
         }
