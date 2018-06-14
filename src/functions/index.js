@@ -65,7 +65,7 @@ function getNetDiscount (net, discountType, discountNumber) { // Test
   if (net < 0) {
     net = 0
   }
-  return net
+  return net.toString()
 }
 
 function validateDataInput (tel, net) {
