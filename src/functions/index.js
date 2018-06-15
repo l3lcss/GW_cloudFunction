@@ -89,18 +89,11 @@ async function getCode (tel, net) {
   if (vip.exists && net >= 3000) {
     let generatedCode = genCode()
     const promotionDocument = await db.runTransaction(transaction => {
-      return transaction.get(db.collection('promoCode').doc('totalDocumentOfPromotionCode'))
+      return transaction.get(db.collection('promoCode').doc(generatedCode))
         .then (async totalPromotionCode => {
-          let newDocument = totalPromotionCode.data().promoCode
-          while (newDocument.find(code => code === generatedCode) === generatedCode) {
-            generatedCode = genCode()
+          if (!totalPromotionCode.exists) {
+            setNewDocumentPromoCode (generatedCode)
           }
-          newDocument.push(generatedCode)
-          transaction.update(db.collection('promoCode').doc('totalDocumentOfPromotionCode'), { promoCode: newDocument })
-      }).then(async () => {
-        await setNewDocumentPromoCode (generatedCode)
-      }).catch(err => {
-        console.error(err)
       })
     })
     return ({ Code : generatedCode, Net : net})
@@ -125,9 +118,9 @@ async function setNewDocumentPromoCode (generatedCode) {
 
 function genCode() { // check Code
   let code
-  const message = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+  const message = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789'
   do {
-    code = randomPromoCode (message)
+    code = randomPromoCode (message)//AA
   } while (checkCode(code))
   return code
 }
@@ -153,16 +146,3 @@ function setLog (raw, state, result) {
     raw: raw
   })
 }
-
-// const message = () => {
-//   return new Promise(resolve => {
-//     setTimeout(() => {
-//       resolve(`from Babelified Cloud Functions!`)
-//     }, 1000)
-//   })
-// }
-
-// export let helloWorld = functions.https.onRequest(async (req, res) => {
-//   let world = await message()
-//   res.status(200).send(`Hello ${world}`)
-// })
