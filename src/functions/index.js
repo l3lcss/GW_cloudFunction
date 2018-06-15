@@ -104,7 +104,7 @@ async function getCode (tel, net) {
 
 async function setNewDocumentPromoCode (generatedCode) {
   let createDate = new Date()
-  let expDate = new Date(createDate.getFullYear(), createDate.getMonth()+3, createDate.getDay(), createDate.getHours(), createDate.getMinutes(), createDate.getSeconds())
+  let expDate = new Date(createDate.getFullYear(), createDate.getMonth()+3, createDate.getDate(), createDate.getHours(), createDate.getMinutes(), createDate.getSeconds())
   let newCode = {
     create_date: createDate,
     discount_number: 300,
