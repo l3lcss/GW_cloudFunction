@@ -1,5 +1,6 @@
 import * as functions from "firebase-functions"
 import admin from 'firebase-admin'
+import { stat } from "fs";
 admin.initializeApp({
     credential: admin.credential.applicationDefault() 
 })
@@ -14,20 +15,30 @@ const db = admin.firestore()
 
 export const getDiscount = functions.https.onRequest(async (req, res) => {
   const promoCode = req.query.promoCode
+  let raw = {
+    promoCode
+  }
   const promotionDetails = await db.collection('promoCode').doc(promoCode).get()
   if (promotionDetails.exists) {
     let promotionData = promotionDetails.data()
+    setLog(raw, state.FIND_CODE, promotionData)
     res.send({
       ...promotionData,
       promoCode
     })
   } else {
+    setLog(raw, state.FIND_CODE, null)
     res.send(null)
   }
 })
 
 export const checkOut = functions.https.onRequest(async (req, res) => {
   let {tel, net, promoCode} = req.query
+  let raw = {
+    tel,
+    net,
+    promoCode
+  }
   if (!validateDataInput(tel, net)) {
     res.status(400).send('Bad value!!')
   }
@@ -42,8 +53,9 @@ export const checkOut = functions.https.onRequest(async (req, res) => {
             selectedPromotion.data().discount_type,
             selectedPromotion.data().discount_number
           )
+          setLog(raw, state.USE_CODE, net)
         } else {
-          // Log Code can not be used.
+          setLog(raw, state.USE_CODE, net)
         }
       })
     }).then(() => {
@@ -85,6 +97,10 @@ function setStatus (type, promoCode) {
 }
 
 async function getCode (tel, net) {
+  let raw = {
+    tel,
+    net
+  }
   const vip = await db.collection('vip').doc(tel).get()
   if (vip.exists && net >= 3000) {
     let generatedCode = genCode()
@@ -93,12 +109,14 @@ async function getCode (tel, net) {
         .then (async totalPromotionCode => {
           if (!totalPromotionCode.exists) {
             setNewDocumentPromoCode (generatedCode)
+            setLog(raw, state.GEN_CODE, { newGenerateCode : generatedCode, netDiscount : net})
           }
       })
     })
-    return ({ Code : generatedCode, Net : net})
+    return ({ newGenerateCode : generatedCode, netDiscount : net})
   } else {
-    return ({Net: net})
+    setLog(raw, state.GEN_CODE, { newGenerateCode : null, netDiscount : net})
+    return ({netDiscount: net})
   }
 }
 
