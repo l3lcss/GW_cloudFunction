@@ -1,6 +1,7 @@
-import * as functions from "firebase-functions"
+import * as functions from 'firebase-functions'
 import admin from 'firebase-admin'
-import { stat } from "fs";
+const cors = require('cors')({origin: true})
+
 admin.initializeApp({
     credential: admin.credential.applicationDefault() 
 })
@@ -28,7 +29,9 @@ export const getDiscount = functions.https.onRequest(async (req, res) => {
     })
   } else {
     setLog(raw, state.FIND_CODE, null)
-    res.send(null)
+    res.status(200).send({
+      message: 'promotionCode not found'
+    })
   }
 })
 
@@ -40,15 +43,20 @@ export const checkOut = functions.https.onRequest(async (req, res) => {
     promoCode
   }
   if (!validateDataInput(tel, net)) {
-    res.status(400).send('Bad value!!')
+    res.status(400).send({
+      message: 'tel and net should be numeric',
+      data: {
+        status: 400
+      }
+    })
   }
   if (promoCode) {
     const promotion = await db.runTransaction(transaction => {
       return transaction.get(db.collection('promoCode').doc(promoCode))
       .then (async selectedPromotion => {
         if (selectedPromotion.exists && selectedPromotion.data().status === 'unused' && (selectedPromotion.data().exp_date > new Date())) {
-          setStatus(selectedPromotion.data().type, promoCode) // set Status to used
-          net = await getNetDiscount (  // set getDiscount Price
+          setStatusPromoCode(selectedPromotion.data().type, promoCode)
+          net = await getNetDiscount ( 
             net,
             selectedPromotion.data().discount_type,
             selectedPromotion.data().discount_number
@@ -59,20 +67,21 @@ export const checkOut = functions.https.onRequest(async (req, res) => {
         }
       })
     }).then(() => {
-      console.log('Transaction used code success') // Log transaction Success
+      console.log('Transaction used code success')
     }).catch(err => {
-      console.error(err) // Log transaction Error
+      console.error(err)
     })
   }
-  const result = await getCode(tel, net)
+  const result = await getNewPromoCode(tel, net)
   res.send(result)
 })
 
-function getNetDiscount (net, discountType, discountNumber) { // Test
+function getNetDiscount (net, discountType, discountNumber) { 
+  const discountNumberInt = parseInt(discountNumber)
   if (discountType === 'amount') {
-    net = net - discountNumber
+    net = net - discountNumberInt
   } else if (discountType === 'percent') {
-    net = net - ((net * discountNumber) / 100)
+    net = net - ((net * discountNumberInt) / 100)
   }
   if (net < 0) {
     net = 0
@@ -88,7 +97,7 @@ function validateDataInput (tel, net) {
   }
 }
 
-function setStatus (type, promoCode) {
+function setStatusPromoCode (type, promoCode) {
   if (type === 'onetime') {
     db.collection('promoCode').doc(promoCode).update({
       status: 'used'
@@ -96,7 +105,7 @@ function setStatus (type, promoCode) {
   }
 }
 
-async function getCode (tel, net) {
+async function getNewPromoCode (tel, net) {
   let raw = {
     tel,
     net
@@ -123,9 +132,9 @@ async function getCode (tel, net) {
 async function setNewDocumentPromoCode (generatedCode) {
   let createDate = new Date()
   let expDate = new Date(createDate.getFullYear(), createDate.getMonth()+3, createDate.getDate(), createDate.getHours(), createDate.getMinutes(), createDate.getSeconds())
-  let newCode = {
+  const newCode = {
     create_date: createDate,
-    discount_number: 300,
+    discount_number: '300',
     discount_type: 'amount',
     exp_date: expDate,
     status: 'unused',
@@ -141,7 +150,7 @@ function genCode() { // check Code
     code = randomPromoCode (message)//AA
   } while (checkCode(code))
   return code
-}
+} 
 
 function randomPromoCode (message) {
   let code = ''
